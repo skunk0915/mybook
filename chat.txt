@@ -12,3 +12,4 @@
 2025-10-31 17:03 要求:.vscode、.env、databooks.dbをFTPアップロード除外 処理:sftp.jsonに除外設定追加、.gitignore作成完了
 2025-10-31 17:05 要求:ソート方法とフィルタ状態をブラウザ閉じても記憶 処理:localStorageでソート・フィルタ状態を永続化実装完了
 2025-10-31 18:00 要求:ページロードフェードインを0.2秒に短縮 処理:css/style.cssのtransition時間を0.8秒から0.2秒に変更完了
+2025-10-31 17:24 要求:PWAステータスバー色を透明化 処理:manifest.jsonとindex.htmlのtheme_colorをtransparentに変更完了
