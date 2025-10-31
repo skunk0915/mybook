@@ -22,6 +22,7 @@ body {
     color: var(--text-color);
     min-height: 100vh;
     padding: 20px;
+  padding-top: env(safe-area-inset-top);
 }
 
 /* ヘッダー */
