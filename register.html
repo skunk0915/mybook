@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#8b4513">
+    <title>書籍登録 - わたしの本棚</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <header>
+        <h1>わたしの本棚</h1>
+        <p id="page-title">新しい本を登録</p>
+    </header>
+
+    <div id="message"></div>
+
+    <div class="form-container">
+        <form id="book-form" onsubmit="submitForm(event)">
+            <div class="form-group">
+                <label for="title">タイトル <span style="color: red;">*</span></label>
+                <input type="text" id="title" name="title" required>
+            </div>
+
+            <div class="form-group">
+                <label for="status">状態</label>
+                <select id="status" name="status">
+                    <option value="未読">未読</option>
+                    <option value="読書中">読書中</option>
+                    <option value="読了">読了</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="start_date">開始日</label>
+                <input type="date" id="start_date" name="start_date">
+            </div>
+
+            <div class="form-group">
+                <label for="end_date">終了日</label>
+                <input type="date" id="end_date" name="end_date">
+            </div>
+
+            <div class="form-group">
+                <label for="rating">評価（5段階）</label>
+                <select id="rating" name="rating">
+                    <option value="">未評価</option>
+                    <option value="1">★☆☆☆☆ (1)</option>
+                    <option value="2">★★☆☆☆ (2)</option>
+                    <option value="3">★★★☆☆ (3)</option>
+                    <option value="4">★★★★☆ (4)</option>
+                    <option value="5">★★★★★ (5)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="cover_image">表紙画像</label>
+                <input type="file" id="cover_image" name="cover_image" accept="image/*" onchange="previewImage(event)">
+                <img id="preview" class="image-preview" style="display: none;">
+            </div>
+
+            <div class="form-group">
+                <label for="review">書評</label>
+                <textarea id="review" name="review" placeholder="この本についての感想や書評を書いてください..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" onclick="location.href='index.html'">キャンセル</button>
+                <button type="submit" class="primary" id="submit-btn">登録</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let editMode = false;
+        let currentBookId = null;
+        let currentCoverImage = null;
+
+        // ページ読み込み時
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const bookId = params.get('id');
+
+            if (bookId) {
+                editMode = true;
+                currentBookId = bookId;
+                document.getElementById('page-title').textContent = '書籍を編集';
+                document.getElementById('submit-btn').textContent = '更新';
+                loadBookForEdit(bookId);
+            }
+        });
+
+        // 編集用に書籍を読み込む
+        async function loadBookForEdit(id) {
+            try {
+                const response = await fetch(`api/books.php?id=${id}`);
+                if (!response.ok) {
+                    throw new Error('書籍の取得に失敗しました');
+                }
+
+                const book = await response.json();
+                currentCoverImage = book.cover_image;
+
+                // フォームに値をセット
+                document.getElementById('title').value = book.title || '';
+                document.getElementById('status').value = book.status || '未読';
+                document.getElementById('start_date').value = book.start_date || '';
+                document.getElementById('end_date').value = book.end_date || '';
+                document.getElementById('rating').value = book.rating || '';
+                document.getElementById('review').value = book.review || '';
+
+                // 画像プレビュー
+                if (book.cover_image) {
+                    const preview = document.getElementById('preview');
+                    preview.src = book.cover_image;
+                    preview.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('書籍の読み込みに失敗しました: ' + error.message, 'error');
+            }
+        }
+
+        // 画像プレビュー
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('preview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // フォーム送信
+        async function submitForm(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '処理中...';
+
+            try {
+                // 画像をアップロード
+                let coverImagePath = currentCoverImage;
+                const imageFile = document.getElementById('cover_image').files[0];
+
+                if (imageFile) {
+                    coverImagePath = await uploadImage(imageFile);
+                }
+
+                // 書籍データを準備
+                const bookData = {
+                    title: document.getElementById('title').value,
+                    status: document.getElementById('status').value,
+                    start_date: document.getElementById('start_date').value || null,
+                    end_date: document.getElementById('end_date').value || null,
+                    rating: document.getElementById('rating').value || null,
+                    review: document.getElementById('review').value || null,
+                    cover_image: coverImagePath
+                };
+
+                // API呼び出し
+                let url = 'api/books.php';
+                let method = 'POST';
+
+                if (editMode) {
+                    url = `api/books.php?id=${currentBookId}`;
+                    method = 'PUT';
+                }
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(bookData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '保存に失敗しました');
+                }
+
+                const result = await response.json();
+                showMessage(editMode ? '書籍を更新しました' : '書籍を登録しました', 'success');
+
+                setTimeout(() => {
+                    location.href = `detail.html?id=${result.id}`;
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('エラー: ' + error.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = editMode ? '更新' : '登録';
+            }
+        }
+
+        // 画像をアップロード
+        async function uploadImage(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch('api/upload.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('画像のアップロードに失敗しました');
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || '画像のアップロードに失敗しました');
+            }
+
+            return result.path;
+        }
+
+        // メッセージ表示
+        function showMessage(message, type = 'success') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
+            messageDiv.style.display = 'block';
+
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

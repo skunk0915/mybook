@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#8b4513">
+    <title>わたしの本棚</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <header>
+        <h1>わたしの本棚</h1>
+        <p>書籍詳細</p>
+    </header>
+
+    <div id="message"></div>
+
+    <div id="detail-content" class="detail-container">
+        <div class="loading">読み込み中...</div>
+    </div>
+
+    <script>
+        let currentBook = null;
+
+        // ページ読み込み時
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const bookId = params.get('id');
+
+            if (!bookId) {
+                showMessage('書籍IDが指定されていません', 'error');
+                setTimeout(() => location.href = 'index.html', 2000);
+                return;
+            }
+
+            loadBookDetail(bookId);
+        });
+
+        // 書籍詳細を読み込む
+        async function loadBookDetail(id) {
+            try {
+                const response = await fetch(`api/books.php?id=${id}`);
+                if (!response.ok) {
+                    throw new Error('書籍の取得に失敗しました');
+                }
+
+                currentBook = await response.json();
+                displayBookDetail(currentBook);
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('書籍の読み込みに失敗しました: ' + error.message, 'error');
+                document.getElementById('detail-content').innerHTML =
+                    '<div class="empty-state"><h3>エラーが発生しました</h3><p>書籍が見つかりません</p></div>';
+            }
+        }
+
+        // 書籍詳細を表示
+        function displayBookDetail(book) {
+            const coverHtml = book.cover_image
+                ? `<img src="${book.cover_image}" alt="${book.title}" class="detail-cover">`
+                : `<div class="detail-cover no-image">${book.title}</div>`;
+
+            const ratingStars = book.rating
+                ? '★'.repeat(book.rating) + '☆'.repeat(5 - book.rating)
+                : '未評価';
+
+            const startDate = book.start_date || '未設定';
+            const endDate = book.end_date || '未設定';
+            const review = book.review || '書評なし';
+
+            document.getElementById('detail-content').innerHTML = `
+                <div class="detail-header">
+                    ${coverHtml}
+                    <div class="detail-info">
+                        <h2>${book.title}</h2>
+                        <div class="info-row">
+                            <span class="info-label">状態:</span>
+                            <span class="book-status-badge status-${book.status}">${book.status}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">評価:</span>
+                            <span class="rating-stars">${ratingStars}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">開始日:</span>
+                            <span>${startDate}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">終了日:</span>
+                            <span>${endDate}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">登録日:</span>
+                            <span>${formatDateTime(book.created_at)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">更新日:</span>
+                            <span>${formatDateTime(book.updated_at)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-review">
+                    <h3>📝 書評</h3>
+                    <p style="white-space: pre-wrap;">${review}</p>
+                </div>
+
+                <div class="detail-actions">
+                    <button onclick="location.href='index.html'">← 一覧に戻る</button>
+                    <button class="primary" onclick="location.href='register.html?id=${book.id}'">✏️ 編集</button>
+                    <button onclick="deleteBook()" style="background: #e74c3c; color: white;">🗑️ 削除</button>
+                </div>
+            `;
+        }
+
+        // 書籍を削除
+        async function deleteBook() {
+            if (!currentBook) return;
+
+            if (!confirm(`「${currentBook.title}」を削除してもよろしいですか？`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`api/books.php?id=${currentBook.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('削除に失敗しました');
+                }
+
+                showMessage('書籍を削除しました', 'success');
+                setTimeout(() => location.href = 'index.html', 1500);
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('削除に失敗しました: ' + error.message, 'error');
+            }
+        }
+
+        // 日時をフォーマット
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr) return '未設定';
+            const date = new Date(dateTimeStr);
+            return date.toLocaleString('ja-JP');
+        }
+
+        // メッセージ表示
+        function showMessage(message, type = 'success') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
+            messageDiv.style.display = 'block';
+
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

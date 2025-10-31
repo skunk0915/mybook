@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#8b4513">
+    <meta name="description" content="読書管理アプリ - あなたの本棚をデジタルで管理">
+    <title>わたしの本棚</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+    <div class="controls">
+        <button class="primary" onclick="location.href='register.html'">+ 新しい本を登録</button>
+
+        <div class="sort-group">
+            <label for="sort">並び替え:</label>
+            <select id="sort" onchange="applyFilters()">
+                <option value="">登録日（新しい順）</option>
+                <option value="start_date_desc">開始日（新しい順）</option>
+                <option value="start_date_asc">開始日（古い順）</option>
+                <option value="end_date_desc">終了日（新しい順）</option>
+                <option value="end_date_asc">終了日（古い順）</option>
+                <option value="rating_desc">評価（高い順）</option>
+                <option value="rating_asc">評価（低い順）</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="status-filter">状態:</label>
+            <select id="status-filter" onchange="applyFilters()">
+                <option value="">すべて</option>
+                <option value="未読">未読</option>
+                <option value="読書中">読書中</option>
+                <option value="読了">読了</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="start-from">開始日:</label>
+            <input type="date" id="start-from" onchange="applyFilters()">
+            <span>〜</span>
+            <input type="date" id="start-to" onchange="applyFilters()">
+        </div>
+
+        <button onclick="clearFilters()">フィルタをクリア</button>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="bookshelf">
+        <div class="shelf">
+            <div id="books-container" class="books-container">
+                <div class="loading">読み込み中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        // ページ読み込み時に書籍を取得
+        window.addEventListener('DOMContentLoaded', () => {
+            loadBooks();
+        });
+
+        // 書籍一覧を読み込む
+        async function loadBooks() {
+            try {
+                const params = new URLSearchParams();
+
+                // ソート
+                const sort = document.getElementById('sort').value;
+                if (sort) {
+                    params.append('sort', sort);
+                }
+
+                // 状態フィルタ
+                const status = document.getElementById('status-filter').value;
+                if (status) {
+                    params.append('status', status);
+                }
+
+                // 開始日フィルタ
+                const startFrom = document.getElementById('start-from').value;
+                const startTo = document.getElementById('start-to').value;
+                if (startFrom) params.append('start_from', startFrom);
+                if (startTo) params.append('start_to', startTo);
+
+                const response = await fetch(`api/books.php?${params.toString()}`);
+                if (!response.ok) {
+                    throw new Error('書籍の取得に失敗しました');
+                }
+
+                const books = await response.json();
+                displayBooks(books);
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('書籍の読み込みに失敗しました: ' + error.message, 'error');
+                document.getElementById('books-container').innerHTML =
+                    '<div class="empty-state"><h3>エラーが発生しました</h3><p>書籍の読み込みに失敗しました</p></div>';
+            }
+        }
+
+        // 書籍を表示
+        function displayBooks(books) {
+            const container = document.getElementById('books-container');
+
+            if (books.length === 0) {
+                container.innerHTML =
+                    '<div class="empty-state"><h3>本が登録されていません</h3><p>「+ 新しい本を登録」ボタンから本を追加しましょう</p></div>';
+                return;
+            }
+
+            container.innerHTML = books.map(book => {
+                const coverHtml = book.cover_image
+                    ? `<img src="${book.cover_image}" alt="${book.title}" class="book-cover">`
+                    : `<div class="no-cover">${book.title}</div>`;
+
+                const ratingHtml = book.rating
+                    ? `<div class="book-rating">${'★'.repeat(book.rating)}</div>`
+                    : '';
+
+                return `
+                    <div class="book-card" onclick="location.href='detail.html?id=${book.id}'">
+                        ${coverHtml}
+                        <div class="book-status-badge status-${book.status}">${book.status}</div>
+                        ${ratingHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // フィルタを適用
+        function applyFilters() {
+            loadBooks();
+        }
+
+        // フィルタをクリア
+        function clearFilters() {
+            document.getElementById('sort').value = '';
+            document.getElementById('status-filter').value = '';
+            document.getElementById('start-from').value = '';
+            document.getElementById('start-to').value = '';
+            loadBooks();
+        }
+
+        // メッセージ表示
+        function showMessage(message, type = 'success') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
+            messageDiv.style.display = 'block';
+
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // PWA登録
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('SW registered:', registration))
+                    .catch(err => console.log('SW registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
