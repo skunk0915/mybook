@@ -1,11 +1,11 @@
 const CACHE_NAME = 'mybook-v1';
 const URLS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/detail.html',
-    '/register.html',
-    '/css/style.css',
-    '/manifest.json'
+    './',
+    './index.html',
+    './detail.html',
+    './register.html',
+    './css/style.css',
+    './manifest.json'
 ];
 
 // Service Worker インストール時
@@ -86,7 +86,7 @@ self.addEventListener('fetch', (event) => {
                     })
                     .catch(() => {
                         // ネットワークエラー時はオフラインページを返す
-                        return caches.match('/index.html');
+                        return caches.match('./index.html');
                     });
             })
     );

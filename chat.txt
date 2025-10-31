@@ -1,1 +1,6 @@
-2025-10-31 04:54 要求:読書管理Webツール作成(本登録/本棚風UI/ソート/フィルタ/PWA対応) 処理:PHP+SQLite+Vanilla JSで完全実装完了
+1→2025-10-31 04:54 要求:読書管理Webツール作成(本登録/本棚風UI/ソート/フィルタ/PWA対応) 処理:PHP+SQLite+Vanilla JSで完全実装完了
+2→2025-10-31 04:56 要求:GitHubへプッシュ 処理:リモート設定し正常にプッシュ完了
+2025-10-31 05:10 要求:本棚の並び順をデフォルトで開始日降順に変更 処理:books.phpのデフォルトソートをstart_date DESCに変更完了
+2025-10-31 05:15 要求:faviconとmanifest.jsonを/favicon/に合わせて調整 処理:manifest.jsonとHTML3ファイルのfaviconパス更新完了
+     3→
+2025-10-31 14:58 要求:iOSホーム画面アプリでnot found修正 処理:manifest.jsonとsw.jsの絶対パスを相対パスに変更

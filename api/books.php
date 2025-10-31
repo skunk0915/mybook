@@ -95,7 +95,7 @@ function handleGet($db) {
         }
 
         // ソート
-        $orderBy = 'created_at';
+        $orderBy = 'start_date';
         $orderDir = 'DESC';
 
         if (isset($_GET['sort'])) {
