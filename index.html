@@ -15,51 +15,57 @@
 </head>
 <body>
 
-    <div class="controls">
-        <button class="primary" onclick="location.href='register.html'">+ 新しい本を登録</button>
+    <!-- ハンバーガーメニューアイコン -->
+    <button class="hamburger-icon" onclick="toggleMenu()" aria-label="メニュー">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
 
-        <div class="sort-group">
-            <label for="sort">並び替え:</label>
-            <select id="sort" onchange="applyFilters()">
-                <option value="">登録日（新しい順）</option>
-                <option value="start_date_desc">開始日（新しい順）</option>
-                <option value="start_date_asc">開始日（古い順）</option>
-                <option value="end_date_desc">終了日（新しい順）</option>
-                <option value="end_date_asc">終了日（古い順）</option>
-                <option value="rating_desc">評価（高い順）</option>
-                <option value="rating_asc">評価（低い順）</option>
-            </select>
+    <!-- オーバーレイメニュー -->
+    <div class="menu-overlay" id="menu-overlay" onclick="closeMenu(event)">
+        <div class="controls" onclick="event.stopPropagation()">
+            <button class="close-menu" onclick="toggleMenu()">&times;</button>
+
+            <button class="primary" onclick="location.href='register.html'">+ 新しい本を登録</button>
+
+            <div class="sort-group">
+                <label for="sort">並び替え:</label>
+                <select id="sort" onchange="applyFilters()">
+                    <option value="">登録日（新しい順）</option>
+                    <option value="start_date_desc">開始日（新しい順）</option>
+                    <option value="start_date_asc">開始日（古い順）</option>
+                    <option value="end_date_desc">終了日（新しい順）</option>
+                    <option value="end_date_asc">終了日（古い順）</option>
+                    <option value="rating_desc">評価（高い順）</option>
+                    <option value="rating_asc">評価（低い順）</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="status-filter">状態:</label>
+                <select id="status-filter" onchange="applyFilters()">
+                    <option value="">すべて</option>
+                    <option value="未読">未読</option>
+                    <option value="読書中">読書中</option>
+                    <option value="読了">読了</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="start-from">開始日:</label>
+                <input type="date" id="start-from" onchange="applyFilters()">
+                <span>〜</span>
+                <input type="date" id="start-to" onchange="applyFilters()">
+            </div>
+
+            <button onclick="clearFilters()">フィルタをクリア</button>
         </div>
-
-        <div class="filter-group">
-            <label for="status-filter">状態:</label>
-            <select id="status-filter" onchange="applyFilters()">
-                <option value="">すべて</option>
-                <option value="未読">未読</option>
-                <option value="読書中">読書中</option>
-                <option value="読了">読了</option>
-            </select>
-        </div>
-
-        <div class="filter-group">
-            <label for="start-from">開始日:</label>
-            <input type="date" id="start-from" onchange="applyFilters()">
-            <span>〜</span>
-            <input type="date" id="start-to" onchange="applyFilters()">
-        </div>
-
-        <button onclick="clearFilters()">フィルタをクリア</button>
     </div>
 
     <div id="message"></div>
 
-    <div class="bookshelf">
-        <div class="shelf">
-            <div id="books-container" class="books-container">
-                <div class="loading">読み込み中...</div>
-            </div>
-        </div>
-    </div>
+    <div class="bookshelf" id="bookshelf"></div>
 
     <script src="js/app.js"></script>
     <script>
@@ -106,34 +112,112 @@
             }
         }
 
+        // メニューの開閉
+        function toggleMenu() {
+            const overlay = document.getElementById('menu-overlay');
+            overlay.classList.toggle('active');
+        }
+
+        function closeMenu(event) {
+            if (event.target === event.currentTarget) {
+                toggleMenu();
+            }
+        }
+
         // 書籍を表示
         function displayBooks(books) {
-            const container = document.getElementById('books-container');
+            const bookshelf = document.getElementById('bookshelf');
 
             if (books.length === 0) {
-                container.innerHTML =
+                bookshelf.innerHTML =
                     '<div class="empty-state"><h3>本が登録されていません</h3><p>「+ 新しい本を登録」ボタンから本を追加しましょう</p></div>';
                 return;
             }
 
-            container.innerHTML = books.map(book => {
-                const coverHtml = book.cover_image
-                    ? `<img src="${book.cover_image}" alt="${book.title}" class="book-cover">`
-                    : `<div class="no-cover">${book.title}</div>`;
+            // PC: 10冊、スマホ: 3冊ずつshelfに分割
+            const booksPerShelf = window.innerWidth <= 768 ? 3 : 10;
+            const shelves = [];
 
-                const ratingHtml = book.rating
-                    ? `<div class="book-rating">${'★'.repeat(book.rating)}</div>`
-                    : '';
+            for (let i = 0; i < books.length; i += booksPerShelf) {
+                shelves.push(books.slice(i, i + booksPerShelf));
+            }
+
+            bookshelf.innerHTML = shelves.map(shelfBooks => {
+                const booksHtml = shelfBooks.map(book => {
+                    const coverHtml = book.cover_image
+                        ? `<img src="${book.cover_image}" alt="${book.title}" class="book-cover" data-book-id="${book.id}">`
+                        : `<div class="no-cover">${book.title}</div>`;
+
+                    const ratingHtml = book.rating
+                        ? `<div class="book-rating">${'★'.repeat(book.rating)}</div>`
+                        : '';
+
+                    return `
+                        <div class="book-card" onclick="location.href='detail.html?id=${book.id}'">
+                            ${coverHtml}
+                            <div class="book-status-badge status-${book.status}">${book.status}</div>
+                            ${ratingHtml}
+                        </div>
+                    `;
+                }).join('');
 
                 return `
-                    <div class="book-card" onclick="location.href='detail.html?id=${book.id}'">
-                        ${coverHtml}
-                        <div class="book-status-badge status-${book.status}">${book.status}</div>
-                        ${ratingHtml}
+                    <div class="shelf">
+                        <div class="books-container">
+                            ${booksHtml}
+                        </div>
                     </div>
                 `;
             }).join('');
+
+            // 画像読み込み後に縦横比を設定
+            setTimeout(() => adjustBookCardHeights(), 100);
         }
+
+        // 本のカードの高さを画像の縦横比に基づいて調整
+        function adjustBookCardHeights() {
+            const bookCards = document.querySelectorAll('.book-card');
+            const screenWidth = window.innerWidth;
+            const booksPerShelf = screenWidth <= 768 ? 3 : 10;
+
+            // カード幅を計算（画面幅の90%を本の数で割る）
+            const cardWidth = (screenWidth * 0.9) / booksPerShelf - 20;
+
+            bookCards.forEach(card => {
+                const img = card.querySelector('.book-cover');
+                if (img && img.tagName === 'IMG') {
+                    img.onload = function() {
+                        const aspectRatio = this.naturalHeight / this.naturalWidth;
+                        const cardHeight = cardWidth * aspectRatio;
+                        card.style.width = cardWidth + 'px';
+                        card.style.height = cardHeight + 'px';
+                    };
+
+                    // 既に読み込まれている場合
+                    if (img.complete) {
+                        const aspectRatio = img.naturalHeight / img.naturalWidth;
+                        const cardHeight = cardWidth * aspectRatio;
+                        card.style.width = cardWidth + 'px';
+                        card.style.height = cardHeight + 'px';
+                    }
+                } else {
+                    // no-coverの場合は通常の縦横比（3:4）
+                    const cardHeight = cardWidth * 1.5;
+                    card.style.width = cardWidth + 'px';
+                    card.style.height = cardHeight + 'px';
+                }
+            });
+        }
+
+        // ウィンドウリサイズ時に再計算
+        window.addEventListener('resize', () => {
+            if (window.resizeTimeout) {
+                clearTimeout(window.resizeTimeout);
+            }
+            window.resizeTimeout = setTimeout(() => {
+                loadBooks();
+            }, 200);
+        });
 
         // フィルタを適用
         function applyFilters() {

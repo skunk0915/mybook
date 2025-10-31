@@ -4,3 +4,4 @@
 2025-10-31 05:15 要求:faviconとmanifest.jsonを/favicon/に合わせて調整 処理:manifest.jsonとHTML3ファイルのfaviconパス更新完了
      3→
 2025-10-31 14:58 要求:iOSホーム画面アプリでnot found修正 処理:manifest.jsonとsw.jsの絶対パスを相対パスに変更
+2025-10-31 06:17 要求:ハンバーガーメニュー実装、本棚を棚ごとに分割、本の縦横比対応 処理:HTML/CSS/JS変更完了（右上メニュー/PC10冊・スマホ3冊分割/画像縦横比自動計算）
