@@ -13,11 +13,16 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
+    <!-- ローディング画面 -->
+    <div class="page-loader" id="page-loader">
+        <div class="spinner"></div>
+        <div class="loader-text">読み込み中...</div>
+    </div>
 
-    <div id="message"></div>
+    <div class="page-content" id="page-content">
+        <div id="message"></div>
 
-    <div id="detail-content" class="detail-container">
-        <div class="loading">読み込み中...</div>
+        <div id="detail-content" class="detail-container"></div>
     </div>
 
     <script>
@@ -112,6 +117,48 @@
                     <button onclick="deleteBook()" style="background: #e74c3c; color: white;">🗑️ 削除</button>
                 </div>
             `;
+
+            // 画像読み込み完了後にローダーを非表示
+            waitForImagesToLoad().then(() => {
+                hideLoader();
+            });
+        }
+
+        // 全ての画像の読み込みを待つ
+        function waitForImagesToLoad() {
+            const images = document.querySelectorAll('.detail-cover[src]');
+            if (images.length === 0) {
+                return Promise.resolve();
+            }
+
+            const promises = Array.from(images).map(img => {
+                return new Promise((resolve) => {
+                    if (img.complete) {
+                        resolve();
+                    } else {
+                        img.onload = () => resolve();
+                        img.onerror = () => resolve();
+                    }
+                });
+            });
+
+            return Promise.all(promises);
+        }
+
+        // ローダーを非表示にしてページをフェードイン
+        function hideLoader() {
+            const loader = document.getElementById('page-loader');
+            const content = document.getElementById('page-content');
+
+            loader.classList.add('hidden');
+
+            setTimeout(() => {
+                content.classList.add('visible');
+            }, 100);
+
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 600);
         }
 
         // 書籍を削除

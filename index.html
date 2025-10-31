@@ -14,13 +14,19 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
+    <!-- ローディング画面 -->
+    <div class="page-loader" id="page-loader">
+        <div class="spinner"></div>
+        <div class="loader-text">読み込み中...</div>
+    </div>
 
-    <!-- ハンバーガーメニューアイコン -->
-    <button class="hamburger-icon" onclick="toggleMenu()" aria-label="メニュー">
-        <span></span>
-        <span></span>
-        <span></span>
-    </button>
+    <div class="page-content" id="page-content">
+        <!-- ハンバーガーメニューアイコン -->
+        <button class="hamburger-icon" onclick="toggleMenu()" aria-label="メニュー">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
 
     <!-- オーバーレイメニュー -->
     <div class="menu-overlay" id="menu-overlay" onclick="closeMenu(event)">
@@ -63,9 +69,10 @@
         </div>
     </div>
 
-    <div id="message"></div>
+        <div id="message"></div>
 
-    <div class="bookshelf" id="bookshelf"></div>
+        <div class="bookshelf" id="bookshelf"></div>
+    </div>
 
     <script src="js/app.js"></script>
     <script>
@@ -131,6 +138,7 @@
             if (books.length === 0) {
                 bookshelf.innerHTML =
                     '<div class="empty-state"><h3>本が登録されていません</h3><p>「+ 新しい本を登録」ボタンから本を追加しましょう</p></div>';
+                hideLoader();
                 return;
             }
 
@@ -170,8 +178,11 @@
                 `;
             }).join('');
 
-            // 画像読み込み後に縦横比を設定
-            setTimeout(() => adjustBookCardHeights(), 100);
+            // 画像読み込み後に縦横比を設定し、ローダーを非表示
+            waitForImagesToLoad().then(() => {
+                adjustBookCardHeights();
+                hideLoader();
+            });
         }
 
         // 本のカードの高さを画像の縦横比に基づいて調整
@@ -231,6 +242,46 @@
             document.getElementById('start-from').value = '';
             document.getElementById('start-to').value = '';
             loadBooks();
+        }
+
+        // 全ての画像の読み込みを待つ
+        function waitForImagesToLoad() {
+            const images = document.querySelectorAll('.book-cover[src]');
+            if (images.length === 0) {
+                return Promise.resolve();
+            }
+
+            const promises = Array.from(images).map(img => {
+                return new Promise((resolve) => {
+                    if (img.complete) {
+                        resolve();
+                    } else {
+                        img.onload = () => resolve();
+                        img.onerror = () => resolve(); // エラーでも続行
+                    }
+                });
+            });
+
+            return Promise.all(promises);
+        }
+
+        // ローダーを非表示にしてページをフェードイン
+        function hideLoader() {
+            const loader = document.getElementById('page-loader');
+            const content = document.getElementById('page-content');
+
+            // ローダーをフェードアウト
+            loader.classList.add('hidden');
+
+            // コンテンツをフェードイン
+            setTimeout(() => {
+                content.classList.add('visible');
+            }, 100);
+
+            // ローダーを完全に削除
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 600);
         }
 
         // メッセージ表示

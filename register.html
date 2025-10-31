@@ -13,14 +13,21 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
-    <header>
-        <h1>わたしの本棚</h1>
-        <p id="page-title">新しい本を登録</p>
-    </header>
+    <!-- ローディング画面 -->
+    <div class="page-loader" id="page-loader">
+        <div class="spinner"></div>
+        <div class="loader-text">読み込み中...</div>
+    </div>
 
-    <div id="message"></div>
+    <div class="page-content" id="page-content">
+        <header>
+            <h1>わたしの本棚</h1>
+            <p id="page-title">新しい本を登録</p>
+        </header>
 
-    <div class="form-container">
+        <div id="message"></div>
+
+        <div class="form-container">
         <form id="book-form" onsubmit="submitForm(event)">
             <div class="form-group">
                 <label for="title">タイトル <span style="color: red;">*</span></label>
@@ -75,6 +82,7 @@
             </div>
         </form>
     </div>
+    </div>
 
     <script>
         let editMode = false;
@@ -92,6 +100,9 @@
                 document.getElementById('page-title').textContent = '書籍を編集';
                 document.getElementById('submit-btn').textContent = '更新';
                 loadBookForEdit(bookId);
+            } else {
+                // 新規登録の場合は即座にローダーを非表示
+                hideLoader();
             }
         });
 
@@ -119,11 +130,33 @@
                     const preview = document.getElementById('preview');
                     preview.src = book.cover_image;
                     preview.style.display = 'block';
+
+                    // 画像読み込み後にローダーを非表示
+                    preview.onload = () => hideLoader();
+                } else {
+                    hideLoader();
                 }
             } catch (error) {
                 console.error('Error:', error);
                 showMessage('書籍の読み込みに失敗しました: ' + error.message, 'error');
+                hideLoader();
             }
+        }
+
+        // ローダーを非表示にしてページをフェードイン
+        function hideLoader() {
+            const loader = document.getElementById('page-loader');
+            const content = document.getElementById('page-content');
+
+            loader.classList.add('hidden');
+
+            setTimeout(() => {
+                content.classList.add('visible');
+            }, 100);
+
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 600);
         }
 
         // 画像プレビュー
