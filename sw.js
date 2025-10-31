@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mybook-v1';
+const CACHE_NAME = 'mybook-v3';
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -21,6 +21,8 @@ self.addEventListener('install', (event) => {
                 console.log('Service Worker: Cache failed', err);
             })
     );
+    // 新しいService Workerをすぐにアクティブ化
+    self.skipWaiting();
 });
 
 // Service Worker アクティベート時
@@ -36,6 +38,9 @@ self.addEventListener('activate', (event) => {
                     }
                 })
             );
+        }).then(() => {
+            // 既存のページを即座に新しいService Workerの制御下に置く
+            return self.clients.claim();
         })
     );
 });
