@@ -7,6 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="読書管理アプリ - あなたの本棚をデジタルで管理">
+
     <title>わたしの本棚</title>
     <link rel="icon" type="image/x-icon" href="img/favicon/favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="img/favicon/favicon-16.png">
@@ -263,19 +264,22 @@
             bookCards.forEach(card => {
                 const img = card.querySelector('.book-cover');
                 if (img && img.tagName === 'IMG') {
-                    img.onload = function() {
-                        const aspectRatio = this.naturalHeight / this.naturalWidth;
-                        const cardHeight = cardWidth * aspectRatio;
-                        card.style.width = cardWidth + 'px';
-                        card.style.height = cardHeight + 'px';
+                    // 画像サイズを設定する関数
+                    const setCardSize = () => {
+                        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                            const aspectRatio = img.naturalHeight / img.naturalWidth;
+                            const cardHeight = cardWidth * aspectRatio;
+                            card.style.width = cardWidth + 'px';
+                            card.style.height = cardHeight + 'px';
+                        }
                     };
 
                     // 既に読み込まれている場合
-                    if (img.complete) {
-                        const aspectRatio = img.naturalHeight / img.naturalWidth;
-                        const cardHeight = cardWidth * aspectRatio;
-                        card.style.width = cardWidth + 'px';
-                        card.style.height = cardHeight + 'px';
+                    if (img.complete && img.naturalWidth > 0) {
+                        setCardSize();
+                    } else {
+                        // まだ読み込まれていない場合
+                        img.onload = setCardSize;
                     }
                 } else {
                     // no-coverの場合は通常の縦横比（3:4）

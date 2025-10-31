@@ -13,16 +13,18 @@
     --text-color: #333;
     --card-shadow: rgba(0, 0, 0, 0.3);
 }
-
+html,body{
+    background-color: #000;
+}
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     /* background: linear-gradient(to bottom, #e8dcc8 0%, #d4c5a9 100%); */
-    background: url(../img/wood.jpg);
+    background-image: url(../img/wood.jpg);
     background-size: 30%;
     color: var(--text-color);
     min-height: 100vh;
-    padding: 20px;
-  padding-top: env(safe-area-inset-top);
+    padding: 1em;
+  /* padding-top: env(safe-area-inset-top); */
 }
 
 /* ヘッダー */
@@ -194,6 +196,7 @@ input[type="date"],
 button {
     padding: 8px 15px;
     border: 2px solid var(--primary-color);
+    color: var(--primary-color);
     border-radius: 5px;
     font-size: 14px;
     background: white;
