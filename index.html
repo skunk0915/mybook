@@ -38,14 +38,21 @@
             <div class="sort-group">
                 <label for="sort">並び替え:</label>
                 <select id="sort" onchange="applyFilters()">
-                    <option value="">登録日（新しい順）</option>
-                    <option value="start_date_desc">開始日（新しい順）</option>
-                    <option value="start_date_asc">開始日（古い順）</option>
-                    <option value="end_date_desc">終了日（新しい順）</option>
-                    <option value="end_date_asc">終了日（古い順）</option>
-                    <option value="rating_desc">評価（高い順）</option>
-                    <option value="rating_asc">評価（低い順）</option>
+                    <option value="created_at">登録日</option>
+                    <option value="start_date">開始日</option>
+                    <option value="end_date">終了日</option>
+                    <option value="rating">評価</option>
                 </select>
+            </div>
+
+            <div class="sort-order-group">
+                <label>並び順:</label>
+                <div class="radio-buttons">
+                    <input type="radio" id="sort-desc" name="sort-order" value="desc" checked onchange="applyFilters()">
+                    <label for="sort-desc" class="radio-button-label">降順</label>
+                    <input type="radio" id="sort-asc" name="sort-order" value="asc" onchange="applyFilters()">
+                    <label for="sort-asc" class="radio-button-label">昇順</label>
+                </div>
             </div>
 
             <div class="filter-group">
@@ -87,9 +94,11 @@
                 const params = new URLSearchParams();
 
                 // ソート
-                const sort = document.getElementById('sort').value;
-                if (sort) {
-                    params.append('sort', sort);
+                const sortField = document.getElementById('sort').value;
+                const sortOrder = document.querySelector('input[name="sort-order"]:checked').value;
+
+                if (sortField) {
+                    params.append('sort', sortField + '_' + sortOrder);
                 }
 
                 // 状態フィルタ
@@ -237,7 +246,8 @@
 
         // フィルタをクリア
         function clearFilters() {
-            document.getElementById('sort').value = '';
+            document.getElementById('sort').value = 'created_at';
+            document.getElementById('sort-desc').checked = true;
             document.getElementById('status-filter').value = '';
             document.getElementById('start-from').value = '';
             document.getElementById('start-to').value = '';

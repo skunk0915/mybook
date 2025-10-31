@@ -131,16 +131,61 @@ h1 {
 }
 
 .filter-group,
-.sort-group {
+.sort-group,
+.sort-order-group {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
 .filter-group label,
-.sort-group label {
+.sort-group label,
+.sort-order-group > label {
     font-weight: bold;
     color: var(--primary-color);
+}
+
+/* ラジオボタンのボタンデザイン */
+.radio-buttons {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+.radio-buttons input[type="radio"] {
+    display: none;
+}
+
+.radio-button-label {
+    flex: 1;
+    padding: 12px 20px;
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+    background: white;
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.radio-button-label:hover {
+    background: var(--background);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.radio-buttons input[type="radio"]:checked + .radio-button-label {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.radio-buttons input[type="radio"]:checked + .radio-button-label:hover {
+    background: var(--shelf-shadow);
+    transform: translateY(-2px);
 }
 
 select,
@@ -451,9 +496,27 @@ button.primary:hover {
     }
 
     .filter-group,
-    .sort-group {
+    .sort-group,
+    .sort-order-group {
         flex-direction: column;
         width: 100%;
+    }
+
+    .sort-order-group > label {
+        width: 100%;
+    }
+
+    .radio-buttons {
+        width: 100%;
+    }
+
+    .radio-button-label {
+        padding: 15px 20px;
+        font-size: 16px;
+        min-height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .detail-header {

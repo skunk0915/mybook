@@ -95,11 +95,19 @@ function handleGet($db) {
         }
 
         // ソート
-        $orderBy = 'start_date';
+        $orderBy = 'created_at';
         $orderDir = 'DESC';
 
         if (isset($_GET['sort'])) {
             switch ($_GET['sort']) {
+                case 'created_at_asc':
+                    $orderBy = 'created_at';
+                    $orderDir = 'ASC';
+                    break;
+                case 'created_at_desc':
+                    $orderBy = 'created_at';
+                    $orderDir = 'DESC';
+                    break;
                 case 'start_date_asc':
                     $orderBy = 'start_date';
                     $orderDir = 'ASC';
