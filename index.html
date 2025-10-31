@@ -85,6 +85,7 @@
     <script>
         // ページ読み込み時に書籍を取得
         window.addEventListener('DOMContentLoaded', () => {
+            loadFiltersFromStorage();
             loadBooks();
         });
 
@@ -138,6 +139,60 @@
             if (event.target === event.currentTarget) {
                 toggleMenu();
             }
+        }
+
+        // フィルタをlocalStorageに保存
+        function saveFiltersToStorage() {
+            const filters = {
+                sort: document.getElementById('sort').value,
+                sortOrder: document.querySelector('input[name="sort-order"]:checked').value,
+                status: document.getElementById('status-filter').value,
+                startFrom: document.getElementById('start-from').value,
+                startTo: document.getElementById('start-to').value
+            };
+            localStorage.setItem('mybook_filters', JSON.stringify(filters));
+        }
+
+        // localStorageからフィルタを読み込み
+        function loadFiltersFromStorage() {
+            const saved = localStorage.getItem('mybook_filters');
+            if (saved) {
+                try {
+                    const filters = JSON.parse(saved);
+
+                    // ソート項目を復元
+                    if (filters.sort) {
+                        document.getElementById('sort').value = filters.sort;
+                    }
+
+                    // 並び順を復元
+                    if (filters.sortOrder === 'asc') {
+                        document.getElementById('sort-asc').checked = true;
+                    } else {
+                        document.getElementById('sort-desc').checked = true;
+                    }
+
+                    // 状態フィルタを復元
+                    if (filters.status) {
+                        document.getElementById('status-filter').value = filters.status;
+                    }
+
+                    // 開始日フィルタを復元
+                    if (filters.startFrom) {
+                        document.getElementById('start-from').value = filters.startFrom;
+                    }
+                    if (filters.startTo) {
+                        document.getElementById('start-to').value = filters.startTo;
+                    }
+                } catch (e) {
+                    console.error('フィルタの読み込みに失敗しました:', e);
+                }
+            }
+        }
+
+        // localStorageからフィルタをクリア
+        function clearFiltersFromStorage() {
+            localStorage.removeItem('mybook_filters');
         }
 
         // 書籍を表示
@@ -241,6 +296,7 @@
 
         // フィルタを適用
         function applyFilters() {
+            saveFiltersToStorage();
             loadBooks();
         }
 
@@ -251,6 +307,7 @@
             document.getElementById('status-filter').value = '';
             document.getElementById('start-from').value = '';
             document.getElementById('start-to').value = '';
+            clearFiltersFromStorage();
             loadBooks();
         }
 
