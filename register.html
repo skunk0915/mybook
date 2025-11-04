@@ -2,9 +2,13 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#8b4513">
-    <title>書籍登録 - わたしの本棚</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="theme-color" content="transparent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="読書管理アプリ - あなたの本棚をデジタルで管理">
+    <title>わたしの本棚</title>
     <link rel="icon" type="image/x-icon" href="img/favicon/favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="img/favicon/favicon-16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon/favicon-32.png">
@@ -20,12 +24,10 @@
     </div>
 
     <div class="page-content" id="page-content">
-        <header>
-            <h1>わたしの本棚</h1>
-            <p id="page-title">新しい本を登録</p>
-        </header>
 
         <div id="message"></div>
+
+        <h1 id="page-title" style="text-align: center; margin: 20px 0;">書籍を登録</h1>
 
         <div class="form-container">
         <form id="book-form" onsubmit="submitForm(event)">

@@ -19,12 +19,12 @@ html,body{
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     /* background: linear-gradient(to bottom, #e8dcc8 0%, #d4c5a9 100%); */
-    background: url(../img/wood.jpg);
+    background-image: url(../img/wood.jpg);
     background-size: 30%;
     color: var(--text-color);
     min-height: 100vh;
-    padding: 20px;
-  padding-top: env(safe-area-inset-top);
+    padding: 1em;
+  /* padding-top: env(safe-area-inset-top); */
 }
 
 /* ヘッダー */
@@ -196,6 +196,7 @@ input[type="date"],
 button {
     padding: 8px 15px;
     border: 2px solid var(--primary-color);
+    color: var(--primary-color);
     border-radius: 5px;
     font-size: 14px;
     background: white;
@@ -237,8 +238,8 @@ button.primary:hover {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 15px;
-    background: #18130f;
+    height: 20px;
+    background-image: linear-gradient(#9d8470, #47382d 5% 67%, #000000 86%);
     border-radius: 3px;
     box-shadow: 0 10px 15px rgba(0, 0, 0, 1);
 }
