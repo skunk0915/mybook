@@ -33,7 +33,10 @@
         <form id="book-form" onsubmit="submitForm(event)">
             <div class="form-group">
                 <label for="title">タイトル <span style="color: red;">*</span></label>
-                <input type="text" id="title" name="title" required>
+                <div class="title-input-group">
+                    <input type="text" id="title" name="title" required>
+                    <button type="button" onclick="openSearchModal()">書籍を検索</button>
+                </div>
             </div>
 
             <div class="form-group">
@@ -86,10 +89,28 @@
     </div>
     </div>
 
+    <!-- 検索モーダル -->
+    <div class="search-modal" id="search-modal">
+        <div class="search-modal-content">
+            <div class="search-modal-header">
+                <h2>書籍を検索</h2>
+                <button class="search-modal-close" onclick="closeSearchModal()">&times;</button>
+            </div>
+            <div class="search-modal-body">
+                <div class="search-input-group">
+                    <input type="text" id="search-query" placeholder="本のタイトルを入力してください" onkeypress="handleSearchKeyPress(event)">
+                    <button id="search-btn" onclick="searchBooks()">検索</button>
+                </div>
+                <div id="search-results-container"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let editMode = false;
         let currentBookId = null;
         let currentCoverImage = null;
+        let selectedBookFromSearch = null;
 
         // ページ読み込み時
         window.addEventListener('DOMContentLoaded', () => {
@@ -272,6 +293,160 @@
             setTimeout(() => {
                 messageDiv.style.display = 'none';
             }, 3000);
+        }
+
+        // 検索モーダルを開く
+        function openSearchModal() {
+            document.getElementById('search-modal').classList.add('active');
+            document.getElementById('search-results-container').innerHTML = '';
+
+            // タイトルフィールドに値があれば、それを検索クエリにセットして自動検索
+            const titleValue = document.getElementById('title').value.trim();
+            if (titleValue) {
+                document.getElementById('search-query').value = titleValue;
+                // 少し遅延させてから自動検索を実行
+                setTimeout(() => searchBooks(), 100);
+            } else {
+                document.getElementById('search-query').value = '';
+            }
+        }
+
+        // 検索モーダルを閉じる
+        function closeSearchModal() {
+            document.getElementById('search-modal').classList.remove('active');
+        }
+
+        // Enterキーで検索
+        function handleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                searchBooks();
+            }
+        }
+
+        // 書籍を検索
+        async function searchBooks() {
+            const query = document.getElementById('search-query').value.trim();
+            if (!query) {
+                showMessage('検索キーワードを入力してください', 'error');
+                return;
+            }
+
+            const searchBtn = document.getElementById('search-btn');
+            const resultsContainer = document.getElementById('search-results-container');
+
+            searchBtn.disabled = true;
+            searchBtn.textContent = '検索中...';
+            resultsContainer.innerHTML = '<div class="search-loading">検索中...</div>';
+
+            try {
+                const response = await fetch(`api/search-books.php?q=${encodeURIComponent(query)}&max=20`);
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || '検索に失敗しました');
+                }
+
+                if (data.books.length === 0) {
+                    resultsContainer.innerHTML = '<div class="search-empty">検索結果が見つかりませんでした</div>';
+                } else {
+                    displaySearchResults(data.books);
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsContainer.innerHTML = `<div class="search-error">エラー: ${error.message}</div>`;
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = '検索';
+            }
+        }
+
+        // 検索結果を表示
+        function displaySearchResults(books) {
+            const resultsContainer = document.getElementById('search-results-container');
+            const resultsHTML = books.map(book => {
+                const coverHTML = book.thumbnail
+                    ? `<img src="${book.thumbnail}" alt="${book.title}" class="search-result-cover">`
+                    : `<div class="search-result-cover no-image">画像なし</div>`;
+
+                const authors = book.authors.length > 0 ? book.authors.join(', ') : '著者不明';
+
+                return `
+                    <div class="search-result-item" onclick='selectBook(${JSON.stringify(book)})'>
+                        ${coverHTML}
+                        <div class="search-result-title">${book.title}</div>
+                        <div class="search-result-author">${authors}</div>
+                    </div>
+                `;
+            }).join('');
+
+            resultsContainer.innerHTML = `<div class="search-results">${resultsHTML}</div>`;
+        }
+
+        // 書籍を選択してフォームに反映
+        async function selectBook(book) {
+            selectedBookFromSearch = book;
+
+            // タイトルをフォームに反映
+            document.getElementById('title').value = book.title;
+
+            // 画像がある場合はダウンロードしてプレビュー
+            if (book.thumbnail) {
+                try {
+                    // サムネイル画像をダウンロードしてBase64に変換
+                    const imageData = await downloadImageAsBase64(book.thumbnail);
+                    if (imageData) {
+                        const preview = document.getElementById('preview');
+                        preview.src = imageData;
+                        preview.style.display = 'block';
+
+                        // 一時的にBase64データを保持（後でアップロード用に変換）
+                        currentCoverImage = null; // 新しい画像を設定するため既存のパスをクリア
+
+                        // Base64からFileオブジェクトを作成してファイル入力フィールドに設定
+                        const file = await base64ToFile(imageData, 'cover.jpg');
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        document.getElementById('cover_image').files = dataTransfer.files;
+                    }
+                } catch (error) {
+                    console.error('Image download error:', error);
+                }
+            }
+
+            closeSearchModal();
+            showMessage('書籍情報を反映しました', 'success');
+        }
+
+        // 画像をBase64としてダウンロード（プロキシ経由）
+        async function downloadImageAsBase64(url) {
+            try {
+                // CORS問題を回避するため、サーバーサイドのプロキシを使用
+                const proxyUrl = `api/image-proxy.php?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+
+                if (!response.ok) {
+                    throw new Error('画像の取得に失敗しました');
+                }
+
+                const blob = await response.blob();
+
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (error) {
+                console.error('Failed to download image:', error);
+                return null;
+            }
+        }
+
+        // Base64をFileオブジェクトに変換
+        async function base64ToFile(base64String, filename) {
+            const response = await fetch(base64String);
+            const blob = await response.blob();
+            return new File([blob], filename, { type: blob.type });
         }
     </script>
 </body>
