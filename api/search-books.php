@@ -79,7 +79,10 @@ try {
         // 画像URLを取得（大きいサイズを優先）
         $thumbnail = null;
         if (isset($volumeInfo['imageLinks'])) {
-            if (isset($volumeInfo['imageLinks']['large'])) {
+            // extraLargeがあればそれを優先
+            if (isset($volumeInfo['imageLinks']['extraLarge'])) {
+                $thumbnail = $volumeInfo['imageLinks']['extraLarge'];
+            } elseif (isset($volumeInfo['imageLinks']['large'])) {
                 $thumbnail = $volumeInfo['imageLinks']['large'];
             } elseif (isset($volumeInfo['imageLinks']['medium'])) {
                 $thumbnail = $volumeInfo['imageLinks']['medium'];
@@ -92,6 +95,17 @@ try {
             // HTTPSに変換
             if ($thumbnail) {
                 $thumbnail = str_replace('http://', 'https://', $thumbnail);
+
+                // 高解像度の画像を取得するためにzoomパラメータを調整
+                // zoom=1（デフォルト）をzoom=0に変更してより大きな画像を取得
+                $thumbnail = preg_replace('/[&?]zoom=\d+/', '', $thumbnail);
+
+                // URLにクエリパラメータがあるか確認
+                if (strpos($thumbnail, '?') !== false) {
+                    $thumbnail .= '&zoom=0';
+                } else {
+                    $thumbnail .= '?zoom=0';
+                }
             }
         }
 
