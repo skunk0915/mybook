@@ -34,7 +34,7 @@
                 <label for="title">タイトル <span style="color: red;">*</span></label>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" id="title" name="title" required style="flex: 1;">
-                    <button type="button" onclick="openSearchModal()" class="search-btn" style="white-space: nowrap;">🔍 検索</button>
+                    <button type="button" onclick="searchFromTitle()" class="search-btn" style="white-space: nowrap;">🔍 検索</button>
                 </div>
             </div>
 
@@ -320,6 +320,31 @@
             setTimeout(() => {
                 messageDiv.style.display = 'none';
             }, 3000);
+        }
+
+        // タイトルから検索を実行
+        function searchFromTitle() {
+            const titleInput = document.getElementById('title');
+            const titleValue = titleInput.value.trim();
+
+            if (!titleValue) {
+                showMessage('タイトルを入力してください', 'error');
+                return;
+            }
+
+            // モーダルを開く
+            const modal = document.getElementById('search-modal');
+            const searchInput = document.getElementById('search-input');
+
+            // タイトル入力欄の値を検索欄にセット
+            searchInput.value = titleValue;
+
+            modal.style.display = 'flex';
+
+            // モーダルが開いた後に自動的に検索を実行
+            setTimeout(() => {
+                searchBooks();
+            }, 100);
         }
 
         // 検索モーダルを開く
