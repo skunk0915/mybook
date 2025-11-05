@@ -27,7 +27,6 @@
 
         <div id="message"></div>
 
-        <h1 id="page-title" style="text-align: center; margin: 20px 0;">書籍を登録</h1>
 
         <div class="form-container">
         <form id="book-form" onsubmit="submitForm(event)">
@@ -120,7 +119,6 @@
             if (bookId) {
                 editMode = true;
                 currentBookId = bookId;
-                document.getElementById('page-title').textContent = '書籍を編集';
                 document.getElementById('submit-btn').textContent = '更新';
                 loadBookForEdit(bookId);
             } else {
