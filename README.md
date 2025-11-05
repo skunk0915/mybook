@@ -33,7 +33,7 @@
 
 - PHPが動作するWebサーバー（さくらレンタルサーバー推奨）
 - PHP 7.4以上
-- SQLite3サポート
+- MySQLデータベース（5.7以上推奨）
 
 ### インストール手順
 
@@ -45,15 +45,28 @@
 
 2. **パーミッション設定**
    ```bash
-   # アップロード、データディレクトリに書き込み権限を付与
+   # アップロードディレクトリに書き込み権限を付与
    chmod 777 uploads
-   chmod 777 data
    ```
 
-3. **データベース初期化**
-   - 初回アクセス時に自動的にSQLiteデータベース（`data/books.db`）が作成されます
+3. **データベース設定**
+   ```bash
+   # MySQLデータベースを作成
+   mysql -u root -p
+   CREATE DATABASE mybook CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
 
-4. **ブラウザでアクセス**
+   ```bash
+   # api/config.php に接続情報を設定
+   # api/config.sample.php をコピーして作成してください
+   cp api/config.sample.php api/config.php
+   # config.php を編集してMySQL接続情報を設定
+   ```
+
+4. **テーブル初期化**
+   - 初回アクセス時に自動的にテーブルが作成されます
+
+5. **ブラウザでアクセス**
    ```
    https://your-domain.com/mybook/
    ```
@@ -74,12 +87,12 @@ mybook/
 ├── js/
 │   └── app.js         # JavaScript
 ├── api/
-│   ├── db.php         # データベース接続
-│   ├── books.php      # 書籍CRUD API
-│   └── upload.php     # 画像アップロード
-├── uploads/           # 表紙画像保存先
-└── data/
-    └── books.db       # SQLiteデータベース（自動生成）
+│   ├── config.php         # データベース接続設定
+│   ├── config.sample.php  # 設定ファイルサンプル
+│   ├── db.php             # データベース接続
+│   ├── books.php          # 書籍CRUD API
+│   └── upload.php         # 画像アップロード
+└── uploads/               # 表紙画像保存先
 ```
 
 ## 💡 使い方
@@ -117,8 +130,8 @@ mybook/
 ### データベースのバックアップ
 
 ```bash
-# データベースファイルをダウンロード
-data/books.db
+# MySQLデータベースをエクスポート
+mysqldump -u username -p mybook > backup.sql
 ```
 
 ### 画像のバックアップ
@@ -144,8 +157,10 @@ uploads/
 
 ### データベースエラー
 
-- `data/`ディレクトリのパーミッションを確認（777）
-- PHPのSQLite3サポートを確認
+- `api/config.php`の接続情報を確認
+- MySQLサーバーが起動しているか確認
+- データベース`mybook`が作成されているか確認
+- ユーザーに適切な権限が付与されているか確認
 
 ### PWAが動作しない
 

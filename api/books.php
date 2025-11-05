@@ -203,7 +203,7 @@ function handlePut($db) {
     $sql = 'UPDATE books
             SET title = ?, start_date = ?, end_date = ?, rating = ?,
                 review = ?, cover_image = ?, status = ?,
-                updated_at = datetime(\'now\', \'localtime\')
+                updated_at = NOW()
             WHERE id = ?';
 
     $stmt = $db->prepare($sql);

@@ -7,8 +7,18 @@
 .env.*.local
 
 # Database files
-databooks.db
+data/
 *.db
+
+# Config files
+api/config.php
+
+# Uploads
+uploads/*.jpg
+uploads/*.jpeg
+uploads/*.png
+uploads/*.gif
+!uploads/.gitkeep
 
 # OS generated files
 .DS_Store
