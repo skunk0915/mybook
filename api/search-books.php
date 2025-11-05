@@ -32,7 +32,7 @@ try {
     $apiUrl = 'https://www.googleapis.com/books/v1/volumes?q='
         . urlencode($query)
         . '&langRestrict=ja'  // 日本語の書籍を優先
-        . '&maxResults=10'     // 最大10件の結果
+        . '&maxResults=30'     // 最大10件の結果
         . '&printType=books'   // 書籍のみ
         . '&orderBy=relevance'; // 関連性の高い順
 

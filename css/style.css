@@ -259,6 +259,7 @@ button.primary:hover {
     cursor: pointer;
     transition: all 0.3s ease;
     transform-origin: bottom center;
+    box-shadow: 0 0 10px;
 }
 
 .book-card:hover {
@@ -281,13 +282,13 @@ button.primary:hover {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #fff;
     border-radius: 3px;
     box-shadow:
         2px 2px 5px rgba(0, 0, 0, 0.3),
         -1px 0 3px rgba(0, 0, 0, 0.2);
     padding: 10px;
-    color: white;
+    color: black;
     text-align: center;
     font-weight: bold;
     word-wrap: break-word;
