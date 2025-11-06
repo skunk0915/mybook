@@ -370,8 +370,13 @@
             document.getElementById('search-results').innerHTML = '';
         }
 
+        // グローバル変数でページネーション情報を保持
+        let currentPage = 1;
+        let currentQuery = '';
+        let hasNextPage = false;
+
         // 書籍を検索
-        async function searchBooks() {
+        async function searchBooks(page = 1) {
             const query = document.getElementById('search-input').value.trim();
             const resultsDiv = document.getElementById('search-results');
 
@@ -380,10 +385,24 @@
                 return;
             }
 
-            resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p>検索中...</p></div>';
+            // 新しい検索の場合はページをリセット
+            if (page === 1) {
+                currentPage = 1;
+                currentQuery = query;
+                resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px;"><div class="spinner"></div><p>検索中...</p></div>';
+                window.searchResultsData = [];
+            } else {
+                // 追加検索の場合はローディング表示を追加
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'loading-more';
+                loadingDiv.style.textAlign = 'center';
+                loadingDiv.style.padding = '20px';
+                loadingDiv.innerHTML = '<div class="spinner"></div><p>さらに検索中...</p>';
+                resultsDiv.appendChild(loadingDiv);
+            }
 
             try {
-                const response = await fetch(`api/search-books.php?q=${encodeURIComponent(query)}`);
+                const response = await fetch(`api/search-books.php?q=${encodeURIComponent(query)}&page=${page}`);
 
                 if (!response.ok) {
                     throw new Error('検索に失敗しました');
@@ -396,20 +415,43 @@
                 }
 
                 if (!data.results || data.results.length === 0) {
-                    resultsDiv.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">検索結果が見つかりませんでした</p>';
+                    if (page === 1) {
+                        resultsDiv.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">検索結果が見つかりませんでした</p>';
+                    } else {
+                        const loadingDiv = document.getElementById('loading-more');
+                        if (loadingDiv) loadingDiv.remove();
+                    }
                     return;
                 }
 
-                displaySearchResults(data.results);
+                // 既存の検索結果データに追加
+                window.searchResultsData = window.searchResultsData.concat(data.results);
+
+                // ページネーション情報を更新
+                currentPage = data.currentPage;
+                hasNextPage = data.hasNextPage || false;
+
+                displaySearchResults(window.searchResultsData, hasNextPage);
 
             } catch (error) {
                 console.error('Search error:', error);
-                resultsDiv.innerHTML = `<p style="text-align: center; color: red; padding: 20px;">エラー: ${error.message}</p>`;
+                if (page === 1) {
+                    resultsDiv.innerHTML = `<p style="text-align: center; color: red; padding: 20px;">エラー: ${error.message}</p>`;
+                } else {
+                    const loadingDiv = document.getElementById('loading-more');
+                    if (loadingDiv) loadingDiv.remove();
+                    alert(`エラー: ${error.message}`);
+                }
             }
         }
 
+        // さらに検索
+        function loadMoreResults() {
+            searchBooks(currentPage + 1);
+        }
+
         // 検索結果を表示
-        function displaySearchResults(results) {
+        function displaySearchResults(results, showLoadMore = false) {
             const resultsDiv = document.getElementById('search-results');
 
             let html = '<div class="search-results-list">';
@@ -434,10 +476,18 @@
 
             html += '</div>';
 
-            resultsDiv.innerHTML = html;
+            // さらに検索ボタンを追加
+            if (showLoadMore) {
+                html += `
+                    <div style="text-align: center; padding: 20px;">
+                        <button onclick="loadMoreResults()" class="btn" style="background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px;">
+                            さらに検索（次の10件）
+                        </button>
+                    </div>
+                `;
+            }
 
-            // 検索結果データをグローバル変数に保存
-            window.searchResultsData = results;
+            resultsDiv.innerHTML = html;
         }
 
         // 書籍を選択
