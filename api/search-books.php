@@ -132,14 +132,22 @@ function searchBooksOnAmazon($query, $page = 1, $itemsPerPage = 10) {
             'ItemInfo.Title',
             'ItemInfo.ByLineInfo',
             'ItemInfo.ContentInfo',
-            'ItemInfo.ProductInfo'
+            'ItemInfo.ProductInfo',
+            'ItemInfo.Features',
+            'ItemInfo.ManufactureInfo',
+            'ItemInfo.Classifications',
+            'ItemInfo.ExternalIds',
+            'Offers.Listings.Price',
+            'Offers.Listings.Availability.Message'
         ],
         'SearchIndex' => 'Books',
         'ItemCount' => $itemsPerPage,
         'ItemPage' => $page,
         'PartnerTag' => $associateTag,
         'PartnerType' => 'Associates',
-        'Marketplace' => $marketplace
+        'Marketplace' => $marketplace,
+        'SortBy' => 'Relevance',
+        'Availability' => 'Available'
     ];
 
     $payload = json_encode($requestPayload);
@@ -240,11 +248,32 @@ function formatAmazonResults($data) {
             $publishedDate = $itemInfo['ContentInfo']['PublicationDate']['DisplayValue'];
         }
 
-        // 説明を取得（Amazon PA APIでは直接取得できないため、代わりにページ数などを表示）
+        // 説明を取得（複数の情報源から構築）
         $description = '';
+        $descParts = [];
+
+        // ページ数
         if (isset($itemInfo['ContentInfo']['PagesCount']['DisplayValue'])) {
-            $description = 'ページ数: ' . $itemInfo['ContentInfo']['PagesCount']['DisplayValue'];
+            $descParts[] = 'ページ数: ' . $itemInfo['ContentInfo']['PagesCount']['DisplayValue'];
         }
+
+        // 出版社
+        if (isset($itemInfo['ByLineInfo']['Manufacturer']['DisplayValue'])) {
+            $descParts[] = '出版社: ' . $itemInfo['ByLineInfo']['Manufacturer']['DisplayValue'];
+        }
+
+        // ISBN
+        if (isset($itemInfo['ExternalIds']['ISBNs']['DisplayValues'][0])) {
+            $descParts[] = 'ISBN: ' . $itemInfo['ExternalIds']['ISBNs']['DisplayValues'][0];
+        }
+
+        // Features（特徴・説明）
+        if (isset($itemInfo['Features']['DisplayValues']) && is_array($itemInfo['Features']['DisplayValues'])) {
+            $features = array_slice($itemInfo['Features']['DisplayValues'], 0, 2);
+            $descParts = array_merge($descParts, $features);
+        }
+
+        $description = implode(' / ', $descParts);
 
         // ASINを取得
         $asin = $item['ASIN'] ?? null;
