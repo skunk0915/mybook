@@ -796,6 +796,39 @@ button.primary:hover {
     transform: translateY(-2px);
 }
 
+/* ステータスボタン */
+.status-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+    background: white;
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.status-btn:hover {
+    background: var(--background);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.status-btn.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.status-btn.active:hover {
+    background: var(--shelf-shadow);
+    transform: translateY(-2px);
+}
+
 /* レスポンシブ - モーダル */
 @media (max-width: 768px) {
     .modal {
