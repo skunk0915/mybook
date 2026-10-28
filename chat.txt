@@ -24,3 +24,14 @@
 2025-11-06 17:22 要求:書籍検索をGoogle Books APIからAmazon PA API v5に置換 処理:Amazon PA API v5完全実装、10件ずつページネーション機能追加完了
 2025-11-06 17:35 要求:書籍検索精度向上 処理:SortBy/Availability追加、ISBN等詳細情報取得拡充完了
 2025-11-10 16:09 要求:ステータス選択をドロップダウンからボタンに変更 処理:3つのボタンを横並び配置、選択状態管理実装完了
+
+2026-10-28 21:35:00
+USER: /Users/outward/.tsunagi/inbox/1793190070814-0-IMG_8330.jpeg
+AI: Amazon PA-API 5.0廃止に伴う書籍検索エラーの原因を特定し、後継のAmazon Creators API（OAuth 2.0 / catalog/v1/searchItems）へ対応するようバックエンドを改修しました。あわせてフロントエンドのエラーハンドリングを改善しサーバーエラー詳細を画面に表示できるように修正、API通信ログ出力（最大10MB）と環境変数サンプル（.env.example）、ドキュメントを整備しました。
+編集したファイルパス:
+- api/search-books.php
+- register.html
+- .env.example
+- README_AMAZON_PA_API.md
+- README.md
+

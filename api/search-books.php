@@ -18,6 +18,32 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 /**
+ * ログ記録関数（最大10MBでローテーション）
+ */
+function writeApiLog($message, $level = 'INFO') {
+    $logDir = dirname(__DIR__) . '/logs';
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0777, true);
+    }
+
+    $logFile = $logDir . '/api.log';
+    $maxBytes = 10 * 1024 * 1024; // 10MB目安
+
+    if (file_exists($logFile) && filesize($logFile) > $maxBytes) {
+        // 直近2MB分を残して切り詰め
+        $content = @file_get_contents($logFile);
+        if ($content !== false && strlen($content) > 2 * 1024 * 1024) {
+            $recent = substr($content, - (2 * 1024 * 1024));
+            @file_put_contents($logFile, $recent);
+        }
+    }
+
+    $timestamp = date('Y-m-d H:i:s');
+    $line = sprintf("[%s] [%s] %s\n", $timestamp, $level, $message);
+    @file_put_contents($logFile, $line, FILE_APPEND);
+}
+
+/**
  * .envファイルを読み込む
  */
 function loadEnv($path) {
@@ -27,17 +53,24 @@ function loadEnv($path) {
 
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
-        // コメント行をスキップ
-        if (strpos(trim($line), '#') === 0) {
+        $trimmed = trim($line);
+        if (strpos($trimmed, '#') === 0 || empty($trimmed)) {
             continue;
         }
 
-        // キーと値を分割
+        if (strpos($line, '=') === false) {
+            continue;
+        }
+
         list($name, $value) = explode('=', $line, 2);
         $name = trim($name);
         $value = trim($value);
 
-        // 環境変数として設定
+        // クォートの除去
+        if (preg_match('/^(["\'])(.*)\1$/', $value, $matches)) {
+            $value = $matches[2];
+        }
+
         if (!array_key_exists($name, $_ENV)) {
             putenv("$name=$value");
             $_ENV[$name] = $value;
@@ -48,154 +81,156 @@ function loadEnv($path) {
 }
 
 /**
- * AWS Signature Version 4による署名を生成
+ * Amazon Creators APIのアクセストークンを取得（OAuth 2.0 / キャッシュ付き）
  */
-function generateAwsSignature($method, $uri, $queryString, $payload, $headers, $accessKey, $secretKey, $region, $service) {
-    $algorithm = 'AWS4-HMAC-SHA256';
-    $amzDate = gmdate('Ymd\THis\Z');
-    $dateStamp = gmdate('Ymd');
-
-    // Canonical Request を作成
-    $canonicalHeaders = '';
-    $signedHeaders = '';
-    ksort($headers);
-    foreach ($headers as $key => $value) {
-        $canonicalHeaders .= strtolower($key) . ':' . trim($value) . "\n";
-        $signedHeaders .= strtolower($key) . ';';
+function getCreatorsAccessToken($clientId, $clientSecret, $tokenEndpoint = 'https://api.amazon.co.jp/auth/o2/token') {
+    $cacheDir = dirname(__DIR__) . '/data';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
     }
-    $signedHeaders = rtrim($signedHeaders, ';');
+    $cacheFile = $cacheDir . '/.creators_token.json';
 
-    $canonicalRequest = implode("\n", [
-        $method,
-        $uri,
-        $queryString,
-        $canonicalHeaders,
-        $signedHeaders,
-        hash('sha256', $payload)
+    // キャッシュ確認
+    if (file_exists($cacheFile)) {
+        $cache = json_decode(@file_get_contents($cacheFile), true);
+        if ($cache && isset($cache['access_token']) && isset($cache['expires_at'])) {
+            // 有効期限の60秒前まで再利用
+            if ($cache['expires_at'] > time() + 60) {
+                return $cache['access_token'];
+            }
+        }
+    }
+
+    // トークンを新規取得
+    $postData = json_encode([
+        'grant_type' => 'client_credentials',
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'scope' => 'creatorsapi::default'
     ]);
 
-    // String to Sign を作成
-    $credentialScope = "$dateStamp/$region/$service/aws4_request";
-    $stringToSign = implode("\n", [
-        $algorithm,
-        $amzDate,
-        $credentialScope,
-        hash('sha256', $canonicalRequest)
-    ]);
-
-    // 署名キーを生成
-    $kDate = hash_hmac('sha256', $dateStamp, 'AWS4' . $secretKey, true);
-    $kRegion = hash_hmac('sha256', $region, $kDate, true);
-    $kService = hash_hmac('sha256', $service, $kRegion, true);
-    $kSigning = hash_hmac('sha256', 'aws4_request', $kService, true);
-
-    // 署名を生成
-    $signature = hash_hmac('sha256', $stringToSign, $kSigning);
-
-    // Authorization ヘッダーを生成
-    $authorizationHeader = "$algorithm Credential=$accessKey/$credentialScope, SignedHeaders=$signedHeaders, Signature=$signature";
-
-    return [
-        'authorization' => $authorizationHeader,
-        'x-amz-date' => $amzDate
-    ];
-}
-
-/**
- * Amazon PA API v5で書籍を検索
- */
-function searchBooksOnAmazon($query, $page = 1, $itemsPerPage = 10) {
-    // 環境変数を読み込み
-    $envPath = dirname(__DIR__) . '/.env';
-    if (!loadEnv($envPath)) {
-        throw new Exception('.envファイルが見つかりません。.env.exampleを参考に.envファイルを作成してください。');
-    }
-
-    $accessKey = getenv('AWS_ACCESS_KEY_ID');
-    $secretKey = getenv('AWS_SECRET_ACCESS_KEY');
-    $associateTag = getenv('ASSOCIATE_TAG');
-    $region = getenv('AWS_REGION') ?: 'us-west-2';
-    $host = getenv('PA_API_HOST') ?: 'webservices.amazon.co.jp';
-    $marketplace = getenv('MARKETPLACE') ?: 'www.amazon.co.jp';
-
-    if (!$accessKey || !$secretKey || !$associateTag) {
-        throw new Exception('AWS認証情報が設定されていません。.envファイルを確認してください。');
-    }
-
-    // PA API v5 SearchItems リクエストボディ
-    $requestPayload = [
-        'Keywords' => $query,
-        'Resources' => [
-            'Images.Primary.Large',
-            'Images.Primary.Medium',
-            'Images.Primary.Small',
-            'ItemInfo.Title',
-            'ItemInfo.ByLineInfo',
-            'ItemInfo.ContentInfo',
-            'ItemInfo.ProductInfo',
-            'ItemInfo.Features',
-            'ItemInfo.ManufactureInfo',
-            'ItemInfo.Classifications',
-            'ItemInfo.ExternalIds',
-            'Offers.Listings.Price',
-            'Offers.Listings.Availability.Message'
-        ],
-        'SearchIndex' => 'Books',
-        'ItemCount' => $itemsPerPage,
-        'ItemPage' => $page,
-        'PartnerTag' => $associateTag,
-        'PartnerType' => 'Associates',
-        'Marketplace' => $marketplace,
-        'SortBy' => 'Relevance',
-        'Availability' => 'Available'
-    ];
-
-    $payload = json_encode($requestPayload);
-    $uri = '/paapi5/searchitems';
-    $method = 'POST';
-    $service = 'ProductAdvertisingAPI';
-
-    // ヘッダーを準備
-    $headers = [
-        'content-encoding' => 'amz-1.0',
-        'content-type' => 'application/json; charset=utf-8',
-        'host' => $host,
-        'x-amz-target' => 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems'
-    ];
-
-    // AWS署名を生成
-    $auth = generateAwsSignature($method, $uri, '', $payload, $headers, $accessKey, $secretKey, $region, $service);
-
-    // cURLでリクエスト
-    $ch = curl_init('https://' . $host . $uri);
+    $ch = curl_init($tokenEndpoint);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Authorization: ' . $auth['authorization'],
-        'Content-Type: ' . $headers['content-type'],
-        'Content-Encoding: ' . $headers['content-encoding'],
-        'Host: ' . $headers['host'],
-        'X-Amz-Date: ' . $auth['x-amz-date'],
-        'X-Amz-Target: ' . $headers['x-amz-target']
+        'Content-Type: application/json; charset=utf-8'
     ]);
     curl_setopt($ch, CURLOPT_TIMEOUT, 15);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
 
-    if (curl_errno($ch)) {
-        throw new Exception('Amazon PA APIへの接続に失敗しました: ' . curl_error($ch));
+    if ($curlError) {
+        writeApiLog('Amazon Creators API トークン取得 cURLエラー: ' . $curlError, 'ERROR');
+        throw new Exception('Amazon認証サーバーへの接続に失敗しました: ' . $curlError);
     }
 
-    curl_close($ch);
+    $resData = json_decode($response, true);
+
+    if ($httpCode !== 200 || !isset($resData['access_token'])) {
+        $msg = $resData['error_description'] ?? $resData['message'] ?? $resData['error'] ?? ('HTTP ' . $httpCode);
+        writeApiLog('Amazon Creators API トークン取得エラー: ' . $msg . ' (Response: ' . $response . ')', 'ERROR');
+        throw new Exception('Amazon認証トークンの取得に失敗しました: ' . $msg);
+    }
+
+    $accessToken = $resData['access_token'];
+    $expiresIn = intval($resData['expires_in'] ?? 3600);
+
+    // キャッシュ保存
+    $cacheData = [
+        'access_token' => $accessToken,
+        'expires_at' => time() + $expiresIn
+    ];
+    @file_put_contents($cacheFile, json_encode($cacheData));
+
+    return $accessToken;
+}
+
+/**
+ * Amazon Creators APIで書籍を検索
+ */
+function searchBooksOnCreatorsApi($query, $page = 1, $itemsPerPage = 10) {
+    $envPath = dirname(__DIR__) . '/.env';
+    if (!loadEnv($envPath)) {
+        throw new Exception('.envファイルが見つかりません。.env.exampleを参考に.envファイルを作成してください。');
+    }
+
+    // 認証情報の取得（新Creators APIキーを優先、互換性のために旧キー名も参照）
+    $credentialId = getenv('AMAZON_CREDENTIAL_ID') ?: getenv('AWS_ACCESS_KEY_ID');
+    $credentialSecret = getenv('AMAZON_CREDENTIAL_SECRET') ?: getenv('AWS_SECRET_ACCESS_KEY');
+    $partnerTag = getenv('AMAZON_ASSOCIATE_TAG') ?: getenv('ASSOCIATE_TAG');
+    $marketplace = getenv('AMAZON_MARKETPLACE') ?: (getenv('MARKETPLACE') ?: 'www.amazon.co.jp');
+    $tokenEndpoint = getenv('AMAZON_TOKEN_ENDPOINT') ?: 'https://api.amazon.co.jp/auth/o2/token';
+
+    if (!$credentialId || !$credentialSecret || !$partnerTag) {
+        throw new Exception('Amazon Creators APIの認証情報が設定されていません。.envに AMAZON_CREDENTIAL_ID, AMAZON_CREDENTIAL_SECRET, AMAZON_ASSOCIATE_TAG を設定してください。');
+    }
+
+    // アクセストークン取得
+    $accessToken = getCreatorsAccessToken($credentialId, $credentialSecret, $tokenEndpoint);
+
+    // Creators API searchItems エンドポイント
+    $apiEndpoint = 'https://creatorsapi.amazon/catalog/v1/searchItems';
+
+    $requestPayload = [
+        'keywords' => $query,
+        'searchIndex' => 'Books',
+        'itemCount' => $itemsPerPage,
+        'itemPage' => $page,
+        'partnerTag' => $partnerTag,
+        'partnerType' => 'Associates',
+        'marketplace' => $marketplace,
+        'sortBy' => 'Relevance',
+        'availability' => 'Available',
+        'resources' => [
+            'images.primary.large',
+            'images.primary.medium',
+            'images.primary.small',
+            'itemInfo.title',
+            'itemInfo.byLineInfo',
+            'itemInfo.contentInfo',
+            'itemInfo.productInfo',
+            'itemInfo.features',
+            'itemInfo.manufactureInfo',
+            'itemInfo.classifications',
+            'itemInfo.externalIds'
+        ]
+    ];
+
+    $payload = json_encode($requestPayload);
+
+    $ch = curl_init($apiEndpoint);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $accessToken,
+        'Content-Type: application/json; charset=utf-8',
+        'x-marketplace: ' . $marketplace
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+
+    if ($curlError) {
+        writeApiLog('Amazon Creators API 検索 cURLエラー: ' . $curlError, 'ERROR');
+        throw new Exception('Amazon Creators APIへの接続に失敗しました: ' . $curlError);
+    }
 
     if ($httpCode !== 200) {
         $errorData = json_decode($response, true);
-        $errorMessage = isset($errorData['Errors'][0]['Message'])
-            ? $errorData['Errors'][0]['Message']
-            : 'Amazon PA APIからエラーが返されました (HTTP ' . $httpCode . ')';
+        $errorMessage = $errorData['errors'][0]['message']
+            ?? $errorData['Errors'][0]['Message']
+            ?? $errorData['message']
+            ?? ('Amazon Creators APIエラー (HTTP ' . $httpCode . ')');
+
+        writeApiLog('Amazon Creators API エラー: ' . $errorMessage . ' (Payload: ' . $payload . ')', 'ERROR');
         throw new Exception($errorMessage);
     }
 
@@ -203,80 +238,94 @@ function searchBooksOnAmazon($query, $page = 1, $itemsPerPage = 10) {
 }
 
 /**
- * Amazon PA APIの結果を整形
+ * Amazon Creators APIの結果をフロントエンド形式に整形
  */
-function formatAmazonResults($data) {
-    if (!isset($data['SearchResult']['Items'])) {
+function formatCreatorsResults($data) {
+    // lowerCamelCase と PascalCase の双方に対応
+    $items = $data['searchResult']['items']
+        ?? $data['SearchResult']['Items']
+        ?? [];
+
+    if (empty($items)) {
         return [];
     }
 
     $results = [];
-    foreach ($data['SearchResult']['Items'] as $item) {
-        $itemInfo = $item['ItemInfo'] ?? [];
-        $images = $item['Images']['Primary'] ?? [];
+    foreach ($items as $item) {
+        $itemInfo = $item['itemInfo'] ?? $item['ItemInfo'] ?? [];
+        $images = $item['images']['primary'] ?? $item['Images']['Primary'] ?? [];
 
-        // タイトルを取得
-        $title = isset($itemInfo['Title']['DisplayValue'])
-            ? $itemInfo['Title']['DisplayValue']
-            : '不明なタイトル';
+        // タイトル
+        $title = $itemInfo['title']['displayValue']
+            ?? $itemInfo['Title']['DisplayValue']
+            ?? '不明なタイトル';
 
-        // 著者を取得
+        // 著者
         $authors = '';
-        if (isset($itemInfo['ByLineInfo']['Contributors'])) {
+        $contributors = $itemInfo['byLineInfo']['contributors']
+            ?? $itemInfo['ByLineInfo']['Contributors']
+            ?? [];
+
+        if (is_array($contributors)) {
             $authorsList = [];
-            foreach ($itemInfo['ByLineInfo']['Contributors'] as $contributor) {
-                if (isset($contributor['Name'])) {
-                    $authorsList[] = $contributor['Name'];
+            foreach ($contributors as $contributor) {
+                $name = $contributor['name'] ?? $contributor['Name'] ?? null;
+                if ($name) {
+                    $authorsList[] = $name;
                 }
             }
             $authors = implode(', ', $authorsList);
         }
 
-        // 表紙画像URLを取得（大きい順）
-        $thumbnail = null;
-        if (isset($images['Large']['URL'])) {
-            $thumbnail = $images['Large']['URL'];
-        } elseif (isset($images['Medium']['URL'])) {
-            $thumbnail = $images['Medium']['URL'];
-        } elseif (isset($images['Small']['URL'])) {
-            $thumbnail = $images['Small']['URL'];
-        }
+        // 表紙画像URL（大きい順）
+        $thumbnail = $images['large']['url']
+            ?? $images['Large']['URL']
+            ?? $images['medium']['url']
+            ?? $images['Medium']['URL']
+            ?? $images['small']['url']
+            ?? $images['Small']['URL']
+            ?? null;
 
-        // 出版日を取得
-        $publishedDate = '';
-        if (isset($itemInfo['ContentInfo']['PublicationDate']['DisplayValue'])) {
-            $publishedDate = $itemInfo['ContentInfo']['PublicationDate']['DisplayValue'];
-        }
+        // 出版日
+        $publishedDate = $itemInfo['contentInfo']['publicationDate']['displayValue']
+            ?? $itemInfo['ContentInfo']['PublicationDate']['DisplayValue']
+            ?? '';
 
-        // 説明を取得（複数の情報源から構築）
-        $description = '';
+        // 説明（ページ数、出版社、ISBN、特徴など）
         $descParts = [];
 
-        // ページ数
-        if (isset($itemInfo['ContentInfo']['PagesCount']['DisplayValue'])) {
-            $descParts[] = 'ページ数: ' . $itemInfo['ContentInfo']['PagesCount']['DisplayValue'];
+        $pages = $itemInfo['contentInfo']['pagesCount']['displayValue']
+            ?? $itemInfo['ContentInfo']['PagesCount']['DisplayValue']
+            ?? null;
+        if ($pages) {
+            $descParts[] = 'ページ数: ' . $pages;
         }
 
-        // 出版社
-        if (isset($itemInfo['ByLineInfo']['Manufacturer']['DisplayValue'])) {
-            $descParts[] = '出版社: ' . $itemInfo['ByLineInfo']['Manufacturer']['DisplayValue'];
+        $manufacturer = $itemInfo['byLineInfo']['manufacturer']['displayValue']
+            ?? $itemInfo['ByLineInfo']['Manufacturer']['DisplayValue']
+            ?? null;
+        if ($manufacturer) {
+            $descParts[] = '出版社: ' . $manufacturer;
         }
 
-        // ISBN
-        if (isset($itemInfo['ExternalIds']['ISBNs']['DisplayValues'][0])) {
-            $descParts[] = 'ISBN: ' . $itemInfo['ExternalIds']['ISBNs']['DisplayValues'][0];
+        $isbns = $itemInfo['externalIds']['isbns']['displayValues']
+            ?? $itemInfo['ExternalIds']['ISBNs']['DisplayValues']
+            ?? [];
+        if (!empty($isbns[0])) {
+            $descParts[] = 'ISBN: ' . $isbns[0];
         }
 
-        // Features（特徴・説明）
-        if (isset($itemInfo['Features']['DisplayValues']) && is_array($itemInfo['Features']['DisplayValues'])) {
-            $features = array_slice($itemInfo['Features']['DisplayValues'], 0, 2);
-            $descParts = array_merge($descParts, $features);
+        $features = $itemInfo['features']['displayValues']
+            ?? $itemInfo['Features']['DisplayValues']
+            ?? [];
+        if (is_array($features) && !empty($features)) {
+            $descParts = array_merge($descParts, array_slice($features, 0, 2));
         }
 
         $description = implode(' / ', $descParts);
 
-        // ASINを取得
-        $asin = $item['ASIN'] ?? null;
+        // ASIN
+        $asin = $item['asin'] ?? $item['ASIN'] ?? null;
 
         $results[] = [
             'title' => $title,
@@ -292,7 +341,6 @@ function formatAmazonResults($data) {
 }
 
 try {
-    // クエリパラメータの取得
     $query = isset($_GET['q']) ? trim($_GET['q']) : '';
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 
@@ -302,16 +350,18 @@ try {
         exit;
     }
 
-    // Amazon PA APIで検索
-    $data = searchBooksOnAmazon($query, $page, 10);
+    // Amazon Creators APIで検索
+    $data = searchBooksOnCreatorsApi($query, $page, 10);
 
-    // 結果を整形
-    $results = formatAmazonResults($data);
+    // 整形
+    $results = formatCreatorsResults($data);
 
-    // 総ページ数を計算（Amazon PA APIの制限により最大10ページ）
-    $totalPages = isset($data['SearchResult']['TotalResultCount'])
-        ? min(10, ceil($data['SearchResult']['TotalResultCount'] / 10))
-        : 1;
+    // 総ページ数（最大10ページ）
+    $totalCount = $data['searchResult']['totalResultCount']
+        ?? $data['SearchResult']['TotalResultCount']
+        ?? 0;
+
+    $totalPages = $totalCount > 0 ? min(10, (int)ceil($totalCount / 10)) : 1;
 
     echo json_encode([
         'results' => $results,

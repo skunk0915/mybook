@@ -421,14 +421,19 @@
 
             try {
                 const response = await fetch(`api/search-books.php?q=${encodeURIComponent(query)}&page=${page}`);
-
-                if (!response.ok) {
-                    throw new Error('検索に失敗しました');
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // JSON形式でないレスポンスのフォールバック
                 }
 
-                const data = await response.json();
+                if (!response.ok) {
+                    const errorMsg = (data && data.error) ? data.error : `検索に失敗しました (${response.status})`;
+                    throw new Error(errorMsg);
+                }
 
-                if (data.error) {
+                if (data && data.error) {
                     throw new Error(data.error);
                 }
 

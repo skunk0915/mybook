@@ -1,63 +1,50 @@
-# Amazon PA API 設定ガイド
+# Amazon Creators API 設定ガイド
 
-このプロジェクトでは、書籍検索にAmazon Product Advertising API (PA API) v5を使用しています。
+このプロジェクトでは、書籍検索に Amazon Creators API（旧 Product Advertising API v5 の後継）を使用しています。
 
 ## 前提条件
 
-Amazon PA APIを使用するには、以下が必要です：
+Amazon Creators API を使用するには、以下が必要です：
 
 1. Amazonアソシエイトアカウント
-2. PA API用のアクセスキーとシークレットキー
-3. アソシエイトタグ
+2. Creators API用の Credential ID と Credential Secret
+3. アソシエイトタグ（PartnerTag）
 
 ## セットアップ手順
 
-### 1. Amazonアソシエイトプログラムに登録
+### 1. Amazonアソシエイトプログラムにログイン
 
-まだ登録していない場合は、[Amazonアソシエイト](https://affiliate.amazon.co.jp/)に登録してください。
+[Amazonアソシエイト・セントラル](https://affiliate.amazon.co.jp/) にログインします。
 
-### 2. PA APIの認証情報を取得
+### 2. Creators APIの認証情報を取得
 
-1. Amazonアソシエイトのアカウントにログイン
-2. 「ツール」→「Product Advertising API」を選択
-3. アクセスキーとシークレットキーを取得
-4. アソシエイトタグをメモ
+1. メニューの「ツール」→「Creators API」（または「Product Advertising API」の移行案内リンク）を開きます。
+2. アプリケーションを追加し、**Credential ID** と **Credential Secret** を取得します。
+3. ご自身のアソシエイトタグ（例: `xxxx-22`）を確認します。
 
 ### 3. 環境変数ファイルの設定
 
-プロジェクトのルートディレクトリに `.env` ファイルを作成します：
+プロジェクトのルートディレクトリに `.env` ファイルを作成（または編集）します：
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` ファイルを開いて、以下の情報を入力します：
+`.env` ファイルを開いて、取得した情報を入力します：
 
 ```env
-# AWSアクセスキーID
-AWS_ACCESS_KEY_ID=AKIA**************
-
-# AWSシークレットアクセスキー
-AWS_SECRET_ACCESS_KEY=****************************************
-
-# Amazonアソシエイトタグ
-ASSOCIATE_TAG=your-associate-tag-20
-
-# リージョン (日本の場合: us-west-2)
-AWS_REGION=us-west-2
-
-# PA APIホスト (日本の場合: webservices.amazon.co.jp)
-PA_API_HOST=webservices.amazon.co.jp
-
-# マーケットプレイス (日本の場合: www.amazon.co.jp)
-MARKETPLACE=www.amazon.co.jp
+# Amazon Creators API 認証情報
+AMAZON_CREDENTIAL_ID=your-credential-id
+AMAZON_CREDENTIAL_SECRET=your-credential-secret
+AMAZON_ASSOCIATE_TAG=your-associate-tag-22
+AMAZON_MARKETPLACE=www.amazon.co.jp
 ```
 
 **重要**: `.env` ファイルは `.gitignore` に含まれているため、Gitリポジトリにコミットされません。
 
 ### 4. 動作確認
 
-ブラウザでアプリケーションを開き、書籍登録画面で書籍を検索してみてください。
+書籍登録画面（`register.html`）を開き、タイトル入力欄横の「検索」ボタンから書籍を検索してみてください。
 
 ## 機能
 
@@ -70,52 +57,20 @@ MARKETPLACE=www.amazon.co.jp
   - 著者
   - 表紙画像（高解像度）
   - 出版日
-  - ページ数
+  - ページ数 / 出版社 / ISBN
   - ASIN（Amazon固有識別番号）
-
-### Google Books APIからの移行について
-
-以前はGoogle Books APIを使用していましたが、以下の理由でAmazon PA APIに移行しました：
-
-- より高品質な表紙画像
-- 日本の書籍に対する充実したデータ
-- ページネーション機能（追加検索）
-- ASINによる正確な書籍識別
 
 ## トラブルシューティング
 
-### エラー: ".envファイルが見つかりません"
+### エラー: "Amazon認証トークンの取得に失敗しました: Client authentication failed"
+→ `.env` ファイルの `AMAZON_CREDENTIAL_ID` または `AMAZON_CREDENTIAL_SECRET` が正しく設定されているか確認してください。旧PA-API用のAWSアクセスキー（AKIA...等）は使用できません。
 
+### エラー: ".envファイルが見つかりません"
 → プロジェクトルートに `.env` ファイルを作成してください。
 
-### エラー: "AWS認証情報が設定されていません"
+### エラー: "Amazon Creators APIの認証情報が設定されていません"
+→ `.env` に `AMAZON_CREDENTIAL_ID`, `AMAZON_CREDENTIAL_SECRET`, `AMAZON_ASSOCIATE_TAG` を設定してください。
 
-→ `.env` ファイルに正しいアクセスキー、シークレットキー、アソシエイトタグを設定してください。
+## ログ確認
 
-### エラー: "Amazon PA APIからエラーが返されました"
-
-→ 以下を確認してください：
-- 認証情報が正しいか
-- PA APIの利用が有効になっているか
-- アソシエイトアカウントが有効か
-- リクエストレートリミットに達していないか
-
-### 検索結果が表示されない
-
-→ 以下を確認してください：
-- キーワードが正確か
-- `.env` ファイルの設定が正しいか
-- ブラウザのコンソールにエラーが表示されていないか
-
-## API制限
-
-Amazon PA APIには以下の制限があります：
-
-- **リクエストレート**: 1秒あたり1リクエスト
-- **最大検索結果**: 10ページ（100件）まで
-- **1ページあたりの件数**: 最大10件
-
-## 参考リンク
-
-- [Amazon PA API ドキュメント](https://webservices.amazon.com/paapi5/documentation/)
-- [Amazonアソシエイト](https://affiliate.amazon.co.jp/)
+APIエラーが発生した場合、`logs/api.log` に詳細な通信エラー内容が記録されます（最大10MBで自動ローテーション）。
