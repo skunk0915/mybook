@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mybook-v6';
+const CACHE_NAME = 'mybook-v7';
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -63,7 +63,27 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 画像などの静的ファイルはキャッシュファースト
+    // 書籍画像（/uploads/）はネットワークファースト（画像変更を即時反映し、オフライン時はキャッシュ）
+    if (event.request.url.includes('/uploads/')) {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    if (response && response.status === 200) {
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    return caches.match(event.request);
+                })
+        );
+        return;
+    }
+
+    // その他の静的ファイルはキャッシュファースト
     event.respondWith(
         caches.match(event.request)
             .then((response) => {

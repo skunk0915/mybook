@@ -35,3 +35,13 @@ AI: Amazon PA-API 5.0廃止に伴う書籍検索エラーの原因を特定し�
 - README_AMAZON_PA_API.md
 - README.md
 
+2026-10-29 11:23:00
+USER: キャッシュは画像変更しても反映されない問題がある。スクロールに合わせてフェードインとかで遅延読み込みとかできないのか。
+AI: 本棚の表紙画像をIntersectionObserverによるスクロール連動の遅延読み込み（Lazy Loading）とフェードインアニメーション表示に改修しました。全画像読み込み完了待ちを撤廃して初期表示を大幅に高速化し、Service WorkerおよびNginxのキャッシュ設定をネットワークファースト／条件付き検証（304）に更新して画像変更が即時反映されるように修正しました。
+編集したファイルパス:
+- scss/style.scss
+- css/style.css
+- index.html
+- sw.js
+- README.md
+

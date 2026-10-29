@@ -221,7 +221,7 @@
             bookshelf.innerHTML = shelves.map(shelfBooks => {
                 const booksHtml = shelfBooks.map(book => {
                     const coverHtml = book.cover_image
-                        ? `<img src="${book.cover_image}" alt="${book.title}" class="book-cover" data-book-id="${book.id}">`
+                        ? `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1.45'%3E%3C/svg%3E" data-src="${book.cover_image}" alt="${book.title}" class="book-cover" data-book-id="${book.id}">`
                         : `<div class="no-cover">${book.title}</div>`;
 
                     const ratingHtml = book.rating
@@ -246,14 +246,79 @@
                 `;
             }).join('');
 
-            // 画像読み込み後に縦横比を設定し、ローダーを非表示
-            waitForImagesToLoad().then(() => {
-                adjustBookCardHeights();
-                hideLoader();
-            });
+            // カードの初期サイズを設定
+            adjustBookCardHeights();
+
+            // スクロールに合わせた遅延読み込みとフェードインを開始
+            setupLazyLoading();
+
+            // ローダーを非表示にして本棚を表示
+            hideLoader();
         }
 
-        // 本のカードの高さを画像の縦横比に基づいて調整
+        let lazyImageObserver = null;
+
+        // スクロール連動の遅延読み込み（フェードイン付き）
+        function setupLazyLoading() {
+            if (lazyImageObserver) {
+                lazyImageObserver.disconnect();
+            }
+
+            if ('IntersectionObserver' in window) {
+                lazyImageObserver = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const card = entry.target;
+                            const img = card.querySelector('.book-cover[data-src]');
+                            if (img) {
+                                loadCardImage(img, card);
+                            }
+                            observer.unobserve(card);
+                        }
+                    });
+                }, {
+                    rootMargin: '250px 0px', // 画面に入る250px手前から先読み開始
+                    threshold: 0.01
+                });
+
+                document.querySelectorAll('.book-card').forEach(card => {
+                    if (card.querySelector('.book-cover[data-src]')) {
+                        lazyImageObserver.observe(card);
+                    }
+                });
+            } else {
+                // 非対応ブラウザ
+                document.querySelectorAll('.book-cover[data-src]').forEach(img => {
+                    loadCardImage(img, img.closest('.book-card'));
+                });
+            }
+        }
+
+        // 画像の読み込みとフェードイン
+        function loadCardImage(img, card) {
+            const realSrc = img.getAttribute('data-src');
+            if (!realSrc) return;
+            img.removeAttribute('data-src');
+
+            const temp = new Image();
+            temp.onload = () => {
+                img.src = realSrc;
+                // 実際の画像の縦横比に合わせてカード高さを微調整
+                if (temp.naturalWidth > 0 && temp.naturalHeight > 0 && card) {
+                    const cardWidth = parseFloat(card.style.width) || card.offsetWidth;
+                    const aspectRatio = temp.naturalHeight / temp.naturalWidth;
+                    card.style.height = (cardWidth * aspectRatio) + 'px';
+                }
+                img.classList.add('loaded');
+            };
+            temp.onerror = () => {
+                img.src = realSrc;
+                img.classList.add('loaded');
+            };
+            temp.src = realSrc;
+        }
+
+        // 本のカードの高さを調整
         function adjustBookCardHeights() {
             const bookCards = document.querySelectorAll('.book-card');
             const screenWidth = window.innerWidth;
@@ -265,25 +330,17 @@
             bookCards.forEach(card => {
                 const img = card.querySelector('.book-cover');
                 if (img && img.tagName === 'IMG') {
-                    // 画像サイズを設定する関数
-                    const setCardSize = () => {
-                        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-                            const aspectRatio = img.naturalHeight / img.naturalWidth;
-                            const cardHeight = cardWidth * aspectRatio;
-                            card.style.width = cardWidth + 'px';
-                            card.style.height = cardHeight + 'px';
-                        }
-                    };
-
-                    // 既に読み込まれている場合
-                    if (img.complete && img.naturalWidth > 0) {
-                        setCardSize();
+                    // ロード済みの画像は実際の縦横比、未ロードは標準縦横比（1:1.45）
+                    if (img.classList.contains('loaded') && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                        const aspectRatio = img.naturalHeight / img.naturalWidth;
+                        card.style.width = cardWidth + 'px';
+                        card.style.height = (cardWidth * aspectRatio) + 'px';
                     } else {
-                        // まだ読み込まれていない場合
-                        img.onload = setCardSize;
+                        card.style.width = cardWidth + 'px';
+                        card.style.height = (cardWidth * 1.45) + 'px';
                     }
                 } else {
-                    // no-coverの場合は通常の縦横比（3:4）
+                    // no-coverの場合は通常の縦横比（1:1.5）
                     const cardHeight = cardWidth * 1.5;
                     card.style.width = cardWidth + 'px';
                     card.style.height = cardHeight + 'px';
@@ -297,7 +354,7 @@
                 clearTimeout(window.resizeTimeout);
             }
             window.resizeTimeout = setTimeout(() => {
-                loadBooks();
+                adjustBookCardHeights();
             }, 200);
         });
 
@@ -316,27 +373,6 @@
             document.getElementById('start-to').value = '';
             clearFiltersFromStorage();
             loadBooks();
-        }
-
-        // 全ての画像の読み込みを待つ
-        function waitForImagesToLoad() {
-            const images = document.querySelectorAll('.book-cover[src]');
-            if (images.length === 0) {
-                return Promise.resolve();
-            }
-
-            const promises = Array.from(images).map(img => {
-                return new Promise((resolve) => {
-                    if (img.complete) {
-                        resolve();
-                    } else {
-                        img.onload = () => resolve();
-                        img.onerror = () => resolve(); // エラーでも続行
-                    }
-                });
-            });
-
-            return Promise.all(promises);
         }
 
         // ローダーを非表示にしてページをフェードイン
